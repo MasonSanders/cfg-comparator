@@ -2,7 +2,6 @@
 #define __PARSER_H__
 
 #include "lexer.h"
-#include "grammar.h"
 
 class Parser 
 {
@@ -11,16 +10,15 @@ public:
 	
 	Token expect(TokenType type);
 	void syntaxError();
-	Grammar parseGrammar();
+	void parseGrammar();
 	void parseRuleList();
-	Rule parseRule();
-	std::vector<std::vector<Symbol>> parseRhs();
-	std::vector<Symbol> parseAlternative();
-	std::vector<Symbol> parseSymbolList();
-	Symbol parseSymbol();
+	void parseRule();
+	void parseRhs();
+	void parseAlternative();
+	void parseSymbolList();
+	void parseSymbol();
 private:
 	Lexer lexer;
-	Grammar grammar;
 };
 
 

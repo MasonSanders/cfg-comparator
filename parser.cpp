@@ -1,4 +1,6 @@
 #include "parser.h"
+#include <iostream>
+#include <cstdlib>
 
 /*
  * Meta Grammar for parsing CFGs:
@@ -33,17 +35,19 @@ void Parser::syntaxError()
 	exit(1);
 }
 
-void Parser::parseGrammar()
+Grammar Parser::parseGrammar()
 {
 	// grammar -> ruleList END_OF_FILE
 	parseRuleList();
 	expect(TokenType::END_OF_FILE);
+	return grammar;
 }
 
 void Parser::parseRuleList()
 {
 	// ruleList -> rule | rule ruleList
-	parseRule();
+	Rule r = parseRule();
+	grammar.rules.push_back(r);
 
 	Token t = lexer.peek();
 	if (t.tokenType == TokenType::ID)
@@ -52,66 +56,106 @@ void Parser::parseRuleList()
 	}
 }
 
-void Parser::parseRule()
+Rule Parser::parseRule()
 {
 	// rule -> ID ARROW rhs SEMICOLON
-	expect(TokenType::ID);
+	Rule r;
+
+	Token lhsToken = expect(TokenType::ID);
+	r.lhs = lhsToken.lexeme;
+	if (grammar.nonterminals.find(lhsToken.lexeme) == grammar.nonterminals.end())
+		grammar.nonterminals.insert(lhsToken.lexeme);
+
 	expect(TokenType::ARROW);
-	parseRhs();
+	r.rhs = parseRhs();
 	expect(TokenType::SEMICOLON);
+	return r;
 }
 
-void Parser::parseRhs()
+std::vector<std::vector<Symbol>> Parser::parseRhs()
 {
 	// rhs -> alternative | alternative OR rhs
-	parseAlternative();
-	
+	std::vector<std::vector<Symbol>> rhs_mat;
+	std::vector<Symbol> alt = parseAlternative();
+	rhs_mat.push_back(alt);	
+
+
 	Token t = lexer.peek();
 	if (t.tokenType == TokenType::OR)
 	{
 		expect(TokenType::OR);
-		parseRhs();
+		std::vector<std::vector<Symbol>> temp = parseRhs();
+		rhs_mat.insert(rhs_mat.end(), temp.begin(), temp.end());
 	}
+
+	return rhs_mat;
 }
 
-void Parser::parseAlternative()
+std::vector<Symbol> Parser::parseAlternative()
 {
 	// alternative -> symbolList | EPSILON
+	std::vector<Symbol> alt;
+
 	Token t = lexer.peek();
 	if (t.tokenType == TokenType::EPSILON)
 	{
-		expect(TokenType::EPSILON);
+		t = expect(TokenType::EPSILON);
+		Symbol s;
+		s.isTerminal = true;
+		s.name = t.lexeme;
+		if (grammar.terminals.find(t.lexeme) == grammar.terminals.end())
+			grammar.terminals.insert(t.lexeme);
+
+		alt.push_back(s);
 	}
 	else
 	{
-		parseSymbolList();
+		alt = parseSymbolList();
 	}
+	
+	return alt;
 }
 
-void Parser::parseSymbolList()
+std::vector<Symbol> Parser::parseSymbolList()
 {
 	// symbolList -> symbol | symbol symbolList
-	parseSymbol();
-	
+	std::vector<Symbol> symbolList;
+	Symbol s = parseSymbol();
+	symbolList.push_back(s);	
+
 	Token t = lexer.peek();
 	if (t.tokenType == TokenType::ID || t.tokenType == TokenType::STRING)
 	{
-		parseSymbolList();
+		std::vector<Symbol> temp = parseSymbolList();
+		symbolList.insert(symbolList.end(), temp.begin(), temp.end());
 	}
+
+	return symbolList;
 }
 
-void Parser::parseSymbol()
+Symbol Parser::parseSymbol()
 {
 	// symbol -> ID | STRING
+	Symbol s;
 	Token t = lexer.peek();
 	if (t.tokenType == TokenType::ID)
 	{
-		expect(TokenType::ID);
+		t = expect(TokenType::ID);
+		s.isTerminal = false;
+		s.name = t.lexeme;
+		if (grammar.nonterminals.find(t.lexeme) == grammar.nonterminals.end())
+			grammar.nonterminals.insert(t.lexeme);
 	}
 	else
 	{
-		expect(TokenType::STRING);
+		t = expect(TokenType::STRING);
+		s.isTerminal = true;
+		s.name = t.lexeme;
+		if (grammar.terminals.find(t.lexeme) == grammar.terminals.end())
+			grammar.terminals.insert(t.lexeme);
 	}
+
+	return s;
 }
 
 

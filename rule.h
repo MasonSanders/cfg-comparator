@@ -15,7 +15,7 @@ class Rule
 {
 public:
 	std::string lhs;
-	std::vector<Symbol&> rhs;
+	std::vector<std::vector<Symbol>> rhs;
 };
 
 #endif

@@ -36,7 +36,7 @@ Token Lexer::peek()
 Token Lexer::nextToken()
 {
 	// whitespace and newline
-	while (pos < input.size() && std::isspace(static_cast<unsigned_char>(input[pos])))
+	while (pos < input.size() && std::isspace(static_cast<unsigned char>(input[pos])))
 	{
 		++pos;
 	}

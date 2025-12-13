@@ -7,7 +7,7 @@
 class Grammar
 {
 public:
-	std::vector<Rule&> rules;
+	std::vector<Rule> rules;
 	std::unordered_set<std::string> terminals;
 	std::unordered_set<std::string> nonterminals;
 };
