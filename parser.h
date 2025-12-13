@@ -8,10 +8,15 @@ class Parser
 public:
 	Parser(const std::string& input);
 	
-	Token expect(Token t);
+	Token expect(TokenType type);
 	void syntaxError();
 	void parseGrammar();
-
+	void parseRuleList();
+	void parseRule();
+	void parseRhs();
+	void parseAlternative();
+	void parseSymbolList();
+	void parseSymbol();
 private:
 	Lexer lexer;
 };
