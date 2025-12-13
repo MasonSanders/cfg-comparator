@@ -95,7 +95,7 @@ Token Lexer::nextToken()
 	{
 		size_t start = pos;
 
-		while (pos	< input.size() && 
+		while (pos < input.size() && 
 				(std::isalnum(static_cast<unsigned char>(input[pos])) || input[pos] == '_' ))
 		{
 			++pos;
