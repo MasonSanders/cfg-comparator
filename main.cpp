@@ -1,6 +1,240 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <iterator>
+#include <unordered_set>
+#include <sstream>
+#include "parser.h"
+
+
+std::string prodKey(const std::vector<Symbol&> prod)
+{
+	std::ostringstream oss;
+	for (auto& s : prod)
+	{
+		oss << (s.isTerminal ? "T:" : "N:") << s.name << "|"; 
+	}
+
+	return oss.str();
+
+}
+
+void buildInitialNullables(const Grammar& g, std::unordered_set<std::string>& nullable)
+{
+	for (auto& r : g.rules)
+	{
+		for (auto& prod : r.rhs)
+		{
+			if (prod.size() == 1 && prod[0].name == "epsilon")
+			{
+				nullable.insert(r.lhs);
+			}
+		}	
+	}  
+}
+
+
+std::unordered_set<std::string> calcNullableSet(const Grammar& g)
+{
+	std::unordered_set<std::string> nullable;
+	
+	buildInitialNullables(g, nullable);
+
+	bool changed = true;
+	while (changed) 
+	{
+		changed = false;
+		for (auto& r : g.rules) 
+		{
+			if (nullable.find(r.lhs) == nullable.end()) 
+			{
+				for (auto& prod : r.rhs) 
+				{
+					bool allNullable = true;
+					for (auto& symbol : prod)
+					{
+						if (symbol.isTerminal && symbol.name != "epsilon")
+						{
+							allNullable = false;
+							break;
+						}
+						else if (symbol.name == "epsilon")
+						{
+							std::cerr << "epsilon production should appear by itself" << std::endl;
+							exit(1);
+						}
+
+						if (nullable.find(symbol.name) == nullable.end())
+						{
+							allNullable = false;
+							break;
+						}
+					}
+
+					if (allNullable && nullable.find(r.lhs) == nullable.end())
+					{
+						nullable.insert(r.lhs);
+						changed = true;
+						break;
+					}
+				}
+			}	
+		}
+	}
+
+	return nullable;
+}
+
+std::string addFreshStartSymbol(Grammar& g, const std::string& oldStart)
+{
+	std::string freshStartName = [](const Grammar& g, const std::string& base = "S0")
+	{
+		if (g.nonterminals.find(base) == g.nonterminals.end())
+			return base;
+		for (int i = 1; ; ++i)
+		{
+			std::string candidate = base + "_" + std::to_string(i);
+			if (g.nonterminals.find(candidate) == g.nonterminals.end())
+				return candidate; 
+		}
+	};
+
+	std::string newStart = freshStartName(g, "S0");
+	
+	Rule r;
+	
+	r.lhs = newStart;
+
+	Symbol s;
+	s.isTerminal = false;
+	s.name = oldStart;
+
+	r.rhs.push_back(std::vector<Symbol>{s});
+	g.rules.insert(g.rules.begin(), r);
+	g.nonterminals.insert(newStart);
+
+	return newStart;
+}
+
+bool startDerivesEpsilon(const std::unordered_set<std::string>& nullable, const std::string& startSymbol)
+{
+	return nullable.find(startSymbol) != nullable.end();
+}
+
+void removeEpsilonProductions(Grammar& g, const std::string& startSymbol)
+{
+	// calculate the nullable set
+	std::unordered_set nullable = calcNullableSet(g);
+	bool keepStartEpsilon = startDerivesEpsilon(nullable, startSymbol);
+
+	for (auto& rule : g.rules)
+	{
+		// declare a set to build the new alts
+		std::vector<std::vector<Symbol>> newAlts;
+		std::unordered_set<std::string> seen; // keep track of what's already been seen
+
+		for (auto& prod : rule.rhs)
+		{
+			// skip explicit epsilon productions for now
+			if (prod.size() == 1 && prod[0].name == "epsilon")
+				continue;
+			
+			// epsilon should not appear mixed with other symbols in the production
+			for (auto& symbol : prod)
+			{
+				if (symbol.name == "epsilon")
+				{
+					std::cerr << "Epsilon symbol appeard in non-epsilon production" << std::endl;
+					exit(1);
+				}
+			}
+
+			// find nullable non-terminal positions
+			std::vector<size_t> nullablePositions;
+
+			for (size_t i = 0; i < prod.size(); ++i)
+			{
+				const auto& symbol = prod[i];
+				if (!symbol.isTerminal && nullable.find(symbol.name) != nullable.end())
+					nullablePositions.push_back(i);
+			}
+
+			// include the original production
+			if (seen.insert(prodKey(prod)).second)
+				newAlts.push_back(prod);
+			
+			// generate productions by deleting any subset of nullable positions
+			// iterate masks 1..(2^m - 1)
+			const int m = (int)nullablePositions.size();
+			const int totalMasks = 1 << m;
+
+			for (int mask = 1; mask < totalMasks; ++mask)
+			{
+				std::vector<Symbol> candidate;
+				candidate.reserve(prod.size());
+				for (int i = 0; i < (int)prod.size(); ++i)
+				{
+					bool deleteThis = false;
+					// check if i is among nullablePositions selected by mask
+					for (int j = 0; j < m; ++j)
+					{
+						if (nullablePositions[j] == i && (mask & (1 << j)))
+						{
+							deleteThis = true;
+							break;
+						}
+					}
+					if (!deleteThis) candidate.push_back(prod[i]);
+				}
+				
+				// if we delete everything, this is epsilon
+				if (candidate.empty())
+				{
+					if (keepStartEpsilon && rule.lhs == startSymbol)
+					{
+						std::vector<Symbol> eps{Symbol{true, "epsilon"}};
+						if (seen.insert(prodKey(eps)).second)
+							newAlts.push_back(eps);
+					}
+					continue;
+				}
+				
+				if (seen.insert(prodKey(candidate)).second)
+					newAlts.push_back(candidate);
+			}
+		}
+
+		// if rule is start symbol, keep epsilon
+		if (keepStartEpsilon && rule.lhs == startSymbol)
+		{
+			std::vector<Symbol> eps{Symbol{true, "epsilon"}};
+			bool exists = false;
+			for (auto& alt : newAlts)
+			{
+				if (prodKey(alt) == key)
+				{
+					exists = true;
+					break;
+				}
+			}
+			if (!exists) 
+				newAlts.push_back(eps)
+		}
+
+		// replace rhs with newAlts
+		rule.rhs = std::move(newAlts);
+	} 
+}
+
+
+// function to convert a grammar to chomsky normal form
+Grammar CNF(Grammar& g) 
+{
+
+	
+}
+
+
 
 int main(int argc, char* argv[])
 {
@@ -8,17 +242,17 @@ int main(int argc, char* argv[])
 	
 
 	// error if user puts the incorrect number of args
-	if (argc != 3) 
+	if (argc != 2) 
 	{
 		std::cerr << "Usage: " << argv[0] << " <input filename 1> <input filename 2>" << std::endl;
 		return 1;	
 	}
 
 	std::string filename1 = argv[1];
-	std::string filename2 = argv[2];
+	//std::string filename2 = argv[2];
 
 	std::ifstream inFile1(filename1);
-	std::ifstream inFile2(filename2);
+	//std::ifstream inFile2(filename2);
 	
 	
 	// error if program can't read one of the files.
@@ -28,11 +262,22 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	
+	// put the entire file contents into a string and create the parser
+	std::string input1 { istreambuf_iterator<char>(inFile1), istreambuf_iterator<char>() };
+	Parser parser1{input1};
+
+	// get the grammar from the parser.
+	Grammar grammar1 = parser1.parseGrammar();
+	
+	
+
+	/*
 	if (!inFile2)
 	{
 		std::cerr << "Error: Could not open file '" << filename2 << "'" << std::endl;
 		return 1;
 	}
+	*/
 
 	return 0;
 }

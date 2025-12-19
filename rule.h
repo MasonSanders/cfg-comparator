@@ -9,7 +9,7 @@ class Symbol
 public:
 	bool isTerminal;
 	std::string name;
-}
+};
 
 class Rule
 {
