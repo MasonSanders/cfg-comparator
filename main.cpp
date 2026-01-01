@@ -1,13 +1,50 @@
 #include <fstream>
+#include <utility>
 #include <iostream>
 #include <string>
 #include <iterator>
 #include <unordered_set>
+#include <unordered_map>
 #include <sstream>
 #include "parser.h"
+#include "rule.h"
+
+bool isUnitProduction(const std::vector<Symbol>& prod)
+{
+	return prod.size() == 1 && !prod[0].isTerminal;
+}
+
+bool isEpsilonProduction(const std::vector<Symbol>& prod)
+{
+	return prod.size() == 1 && prod[0].isTerminal && prod[0].name == "epsilon";
+}
+
+std::string altKey(const std::vector<Symbol>& alt)
+{
+	std::string k;
+	k.reserve(alt.size() * 8);
+	for (const auto& s : alt)
+	{
+		k += (s.isTerminal ? "T:" : "N:");
+		k += s.name;
+		k += "|";
+	}
+	return k;
+}
+
+std::unordered_map<std::string, size_t> buildRuleIndex(const Grammar& g)
+{
+	std::unordered_map<std::string, size_t> idx;
+
+	for (size_t i = 0; i < g.rules.size(); ++i)
+	{
+		idx[g.rules[i].lhs] = i;
+	}
+	return idx;
+}
 
 
-std::string prodKey(const std::vector<Symbol&> prod)
+std::string prodKey(const std::vector<Symbol>& prod)
 {
 	std::ostringstream oss;
 	for (auto& s : prod)
@@ -33,6 +70,79 @@ void buildInitialNullables(const Grammar& g, std::unordered_set<std::string>& nu
 	}  
 }
 
+// breadth first search to compute unit closure
+std::unordered_set<std::string> unitClosure(
+	const Grammar& g,
+	const std::unordered_map<std::string, size_t>& idx,
+	const std::string& start)
+{
+	std::unordered_set<std::string> seen;
+	std::vector<std::string> q;
+	seen.insert(start);
+	q.push_back(start);
+
+	while (!q.empty())
+	{
+		std::string a = q.back();
+		q.pop_back();
+
+		auto it = idx.find(a);
+		if (it == idx.end())
+			continue;
+
+		const Rule& r = g.rules[it->second];
+		for (const auto& prod : r.rhs)
+		{
+			if (isUnitProduction(prod))
+			{
+				const std::string& b = prod[0].name;
+				if (seen.insert(b).second)
+					q.push_back(b);
+			}
+		}
+	}
+
+	return seen;
+}
+
+
+void removeUnitProductions(Grammar& g)
+{
+	auto idx = buildRuleIndex(g);
+	std::unordered_map<std::string, std::unordered_set<std::string>> closureMap;
+	closureMap.reserve(g.rules.size());
+
+	for (const auto& r : g.rules)
+	{
+		closureMap[r.lhs] = unitClosure(g, idx, r.lhs);
+	}
+
+	for (auto& rA : g.rules)
+	{
+		std::vector<std::vector<Symbol>> newRhs;
+		std::unordered_set<std::string> seenAlt;
+
+		for (const auto& B : closureMap[rA.lhs])
+		{
+			auto it = idx.find(B);
+			if (it == idx.end())
+				continue;
+
+			const Rule& rB = g.rules[it->second];
+
+			for (const auto& prod : rB.rhs)
+			{
+				if (isUnitProduction(prod))
+					continue;
+
+				std::string key = altKey(prod);
+				if (seenAlt.insert(key).second)
+					newRhs.push_back(prod);
+			}
+		}
+		rA.rhs = std::move(newRhs);
+	}
+}
 
 std::unordered_set<std::string> calcNullableSet(const Grammar& g)
 {
@@ -87,7 +197,7 @@ std::unordered_set<std::string> calcNullableSet(const Grammar& g)
 
 std::string addFreshStartSymbol(Grammar& g, const std::string& oldStart)
 {
-	std::string freshStartName = [](const Grammar& g, const std::string& base = "S0")
+	auto freshStartName = [](const Grammar& g, const std::string& base = "S0") -> std::string
 	{
 		if (g.nonterminals.find(base) == g.nonterminals.end())
 			return base;
@@ -99,7 +209,7 @@ std::string addFreshStartSymbol(Grammar& g, const std::string& oldStart)
 		}
 	};
 
-	std::string newStart = freshStartName(g, "S0");
+	auto newStart = freshStartName(g, "S0");
 	
 	Rule r;
 	
@@ -208,6 +318,7 @@ void removeEpsilonProductions(Grammar& g, const std::string& startSymbol)
 		if (keepStartEpsilon && rule.lhs == startSymbol)
 		{
 			std::vector<Symbol> eps{Symbol{true, "epsilon"}};
+			std::string key = prodKey(eps);
 			bool exists = false;
 			for (auto& alt : newAlts)
 			{
@@ -218,7 +329,7 @@ void removeEpsilonProductions(Grammar& g, const std::string& startSymbol)
 				}
 			}
 			if (!exists) 
-				newAlts.push_back(eps)
+				newAlts.push_back(eps);
 		}
 
 		// replace rhs with newAlts
@@ -263,7 +374,7 @@ int main(int argc, char* argv[])
 	}
 	
 	// put the entire file contents into a string and create the parser
-	std::string input1 { istreambuf_iterator<char>(inFile1), istreambuf_iterator<char>() };
+	std::string input1 { std::istreambuf_iterator<char>(inFile1), std::istreambuf_iterator<char>() };
 	Parser parser1{input1};
 
 	// get the grammar from the parser.
