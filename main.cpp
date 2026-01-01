@@ -338,6 +338,86 @@ void removeEpsilonProductions(Grammar& g, const std::string& startSymbol)
 }
 
 
+
+std::unordered_set<std::string> computeGenerating(const Grammar& g)
+{
+	std::unordered_set<std::string> GEN;
+	bool changed = true;
+	while (changed)
+	{
+		changed = false;
+		for (const Rule& r : g.rules)
+		{
+			for (const auto& prod : r.rhs)
+			{
+				bool ok = true;
+
+				if (prod.size() == 1 && prod[0].isTerminal && prod[0].name == "epsilon")
+				{
+					ok = true;
+				}
+				else
+				{
+					for (const Symbol& s : prod)
+					{
+						if (s.isTerminal)
+							continue;
+
+						if (!GEN.count(s.name))
+						{
+							ok = false;
+							break;
+						}
+					}
+				}
+				if (ok)
+				{
+					GEN.insert(r.lhs);
+					changed = true;
+					break;
+				}
+			}
+		}
+	}
+	return GEN;
+}
+
+void removeNonGenerating(Grammar& g, const std::unordered_set<std::string>& GEN)
+{
+	std::vector<Rule> newRules;
+	for (const Rule& r : g.rules)
+	{
+		if (!GEN.count(r.lhs))
+			continue;
+
+		Rule nr;
+		nr.lhs = r.lhs;
+
+		for (const auto& prod : r.rhs)
+		{
+			bool ok = true;
+			if (!(prod.size() == 1 && prod[0].isTerminal && prod[0].name == "epsilon"))
+			{
+				for (const Symbol& s : prod)
+				{
+					if (!s.isTerminal && !GEN.count(s.name))
+					{
+						ok = false;
+						break;
+					}
+				}
+			}
+			if (ok)
+				nr.rhs.push_back(prod);
+		}
+
+		if (!nr.rhs.empty())
+			newRules.push_back(std::move(nr));
+	}
+
+	g.rules = std::move(newRules);
+}
+
 // function to convert a grammar to chomsky normal form
 Grammar CNF(Grammar& g) 
 {
