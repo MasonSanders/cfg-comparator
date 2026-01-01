@@ -32,6 +32,31 @@ std::string altKey(const std::vector<Symbol>& alt)
 	return k;
 }
 
+void rebuildSymbolSets(Grammar& g)
+{
+	g.terminals.clear();
+	g.nonterminals.clear();
+
+	for (const auto& rule : g.rules)
+	{
+		g.nonterminals.insert(rule.lhs);
+
+		for (const auto& prod : rule.rhs)
+		{
+			for (const auto& symbol : prod)
+			{
+				if (symbol.isTerminal)
+				{
+					if (symbol.name != "epsilon")
+						g.terminals.insert(symbol.name);
+				}
+				else
+					g.nonterminals.insert(symbol.name);
+			}
+		}
+	}
+}
+
 std::unordered_map<std::string, size_t> buildRuleIndex(const Grammar& g)
 {
 	std::unordered_map<std::string, size_t> idx;
@@ -417,6 +442,76 @@ void removeNonGenerating(Grammar& g, const std::unordered_set<std::string>& GEN)
 
 	g.rules = std::move(newRules);
 }
+
+std::unordered_set<std::string> computeReachable(const Grammar& g, const std::string& start)
+{
+	std::unordered_set<std::string> REACH;
+	std::vector<std::string> stack;
+
+	REACH.insert(start);
+	stack.push_back(start);
+
+	std::unordered_map<std::string, const Rule*> idx;
+	for (const Rule& r : g.rules)
+	{
+		idx[r.lhs] = &r;
+	}
+
+	while (!stack.empty())
+	{
+		std::string A = stack.back();
+		stack.pop_back();
+		auto it = idx.find(A);
+		if (it == idx.end())
+			continue;
+
+		for (const auto& prod : it->second->rhs)
+		{
+			for (const Symbol& s : prod)
+			{
+				if (!s.isTerminal && REACH.insert(s.name).second)
+					stack.push_back(s.name);
+			}
+		}
+	}
+
+	return REACH;
+}
+
+void removeUnreachable(Grammar& g, const std::unordered_set<std::string>& REACH)
+{
+	std::vector<Rule> newRules;
+	for (const Rule& r : g.rules)
+	{
+		if (!REACH.count(r.lhs))
+			continue;
+
+		Rule nr;
+		nr.lhs = r.lhs;
+
+		for (const auto& prod : r.rhs)
+		{
+			bool ok = true;
+			for (const Symbol& s : prod)
+			{
+				if (!s.isTerminal && !REACH.count(s.name))
+				{
+					ok = false;
+					break;
+				}
+			}
+			if (ok)
+				nr.rhs.push_back(prod);
+		}
+
+		if (!nr.rhs.empty())
+			newRules.push_back(std::move(nr));
+	}
+
+	g.rules = std::move(newRules);
+}
+
+
 
 // function to convert a grammar to chomsky normal form
 Grammar CNF(Grammar& g) 
