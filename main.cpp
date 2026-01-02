@@ -511,6 +511,17 @@ void removeUnreachable(Grammar& g, const std::unordered_set<std::string>& REACH)
 	g.rules = std::move(newRules);
 }
 
+void removeUselessSymbols(Grammar& g, const std::string& startSymbol)
+{
+	auto GEN = computeGenerating(g);
+	removeNonGenerating(g, GEN);
+
+	auto REACH = computeReachable(g, startSymbol);
+	removeUnreachable(g, REACH);
+
+	rebuildSymbolSets(g);
+}
+
 
 
 // function to convert a grammar to chomsky normal form
