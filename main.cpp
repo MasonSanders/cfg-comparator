@@ -522,7 +522,16 @@ void removeUselessSymbols(Grammar& g, const std::string& startSymbol)
 	rebuildSymbolSets(g);
 }
 
+void printSymbols(const Grammar& g)
+{
+	std::cout << "Nonterminals:\n";
+	for (const auto& nt : g.nonterminals)
+		std::cout << " " << nt << "\n";
 
+	std::cout << "Terminals:\n";
+	for (const auto& t : g.terminals)
+		std::cout << " " << t << "\n";
+}
 
 // function to convert a grammar to chomsky normal form
 Grammar CNF(Grammar& g) 
