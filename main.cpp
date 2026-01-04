@@ -533,6 +533,95 @@ void printSymbols(const Grammar& g)
 		std::cout << " " << t << "\n";
 }
 
+std::string makeFreshNonterminal(const Grammar& g, const std::string& base)
+{
+	if (g.nonterminals.find(base) == g.nonterminals.end())
+		return base;
+
+	for (int i = 1; ; ++i)
+	{
+		std::string cand = base + "_" + std::to_string(i);
+		if (g.nonterminals.find(cand) == g.nonterminals.end())
+			return cand;
+	}
+}
+
+std::string sanitize(const std::string& t)
+{
+	std::string out;
+	for (unsigned char c : t)
+	{
+		if (std::isalnum(c))
+			out.push_back((char)c);
+		else
+			out.push_back('_');
+	}
+
+	if (out.empty())
+		out = "tok";
+	return out;
+}
+
+
+void eliminateTerminalsFromLong(Grammar& g)
+{
+	std::unordered_map<std::string, std::string> termToNT;
+
+	std::vector<Rule> newRules;
+
+	for (auto& r : g.rules)
+	{
+		for (auto& prod : r.rhs)
+		{
+			if (isEpsilonProduction(prod))
+				continue;
+
+			if (prod.size() < 2)
+				continue;
+
+			for (auto& symbol : prod)
+			{
+				if (!symbol.isTerminal)
+					continue;
+
+				if (symbol.name == "epsilon")
+				{
+					std::cerr << "epsilon appears in a long RHS production" << std::endl;
+					exit(1);
+				}
+
+				auto it = termToNT.find(symbol.name);
+				if (it == termToNT.end())
+				{
+					std::string base = "T_" + sanitize(symbol.name);
+					std::string helper = makeFreshNonterminal(g, base);
+					termToNT[symbol.name] = helper;
+
+
+					Rule tr;
+					tr.lhs = helper;
+					Symbol termSym;
+
+					tr.rhs.push_back(std::vector<Symbol>{ termSym });
+					newRules.push_back(tr);
+
+					g.nonterminals.insert(helper);
+					it = termToNT.find(symbol.name);
+				}
+
+				symbol.isTerminal = false;
+				symbol.name = it->second;
+			}
+		}
+	}
+
+	for (auto& nr : newRules)
+		g.rules.push_back(std::move(nr));
+
+	rebuildSymbolSets(g);
+}
+
+
 // function to convert a grammar to chomsky normal form
 Grammar CNF(Grammar& g) 
 {
