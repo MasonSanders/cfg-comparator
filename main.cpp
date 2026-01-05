@@ -622,11 +622,85 @@ void eliminateTerminalsFromLong(Grammar& g)
 }
 
 
+void binarizeRules(Grammar& g)
+{
+	std::vector<Rule> extraRules;
+	extraRules.reserve(64);
+
+	for (auto& r : g.rules)
+	{
+		std::vector<std::vector<Symbol>> newRhs;
+		newRhs.reserve(r.rhs.size());
+
+		for (const auto& prod : r.rhs)
+		{
+			if (prod.size() <= 2)
+			{
+				newRhs.push_back(prod);
+				continue;
+			}
+
+			Symbol first = prod[0];
+			std::string prevHelper = makeFreshNonterminal(g, "X");
+
+			g.nonterminals.insert(prevHelper);
+
+			newRhs.push_back(std::vector<Symbol>{ first, Symbol{ false, prevHelper } });
+
+			for (size_t i = 1; i < prod.size(); ++i)
+			{
+				if (i == prod.size() - 2)
+				{
+					Rule rr;
+					rr.lhs = prevHelper;
+					rr.rhs.push_back(std::vector<Symbol>{ prod[i], prod[i + 1] });
+					extraRules.push_back(std::move(rr));
+					break;
+				}
+				else
+				{
+					std::string nextHelper = makeFreshNonterminal(g, "X");
+					g.nonterminals.insert(nextHelper);
+
+					Rule rr;
+					rr.lhs = prevHelper;
+					rr.rhs.push_back(std::vector<Symbol>{ prod[i], Symbol{ false, nextHelper }});
+					extraRules.push_back(std::move(rr));
+
+					prevHelper = nextHelper;
+				}
+			}
+		}
+
+		r.rhs = std::move(newRhs);
+	}
+
+	for (auto& rr : extraRules)
+	{
+		g.rules.push_back(std::move(rr));
+	}
+
+	rebuildSymbolSets(g);
+}
+
 // function to convert a grammar to chomsky normal form
 Grammar CNF(Grammar& g) 
 {
+	std::string start = g.rules[0].lhs;
+	addFreshStartSymbol(g, start);
 
-	
+	start = g.rules[0].lhs;
+	removeEpsilonProductions(g, start);
+	removeUnitProductions(g);
+	removeUnitProductions(g);
+
+	start = g.rules[0].lhs;
+	removeUselessSymbols(g, start);
+
+	eliminateTerminalsFromLong(g);
+	binarizeRules(g);
+
+	return g;
 }
 
 
