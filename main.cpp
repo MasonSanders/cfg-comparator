@@ -704,6 +704,26 @@ Grammar CNF(Grammar& g)
 }
 
 
+void printGrammar(const Grammar& g)
+{
+	for (const auto& rule : g.rules)
+	{
+		std::cout << rule.lhs << " --> ";
+
+		for (size_t i = 0; i < rule.rhs.size(); ++i)
+		{
+			for (const auto& symbol : rule.rhs[i])
+			{
+				std::cout << symbol.name << " ";
+			}
+			if (i != rule.rhs.size() - 1)
+				std::cout << "| ";
+			else
+				std::cout << ";\n";
+		}
+	}
+}
+
 
 int main(int argc, char* argv[])
 {
