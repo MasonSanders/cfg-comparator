@@ -692,7 +692,6 @@ Grammar CNF(Grammar& g)
 	start = g.rules[0].lhs;
 	removeEpsilonProductions(g, start);
 	removeUnitProductions(g);
-	removeUnitProductions(g);
 
 	start = g.rules[0].lhs;
 	removeUselessSymbols(g, start);
@@ -714,7 +713,10 @@ void printGrammar(const Grammar& g)
 		{
 			for (const auto& symbol : rule.rhs[i])
 			{
-				std::cout << symbol.name << " ";
+				if (symbol.isTerminal && symbol.name != "epsilon")
+					std::cout << "\"" << symbol.name << "\" ";
+				else
+					std::cout << symbol.name << " ";
 			}
 			if (i != rule.rhs.size() - 1)
 				std::cout << "| ";
