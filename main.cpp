@@ -313,7 +313,7 @@ void removeEpsilonProductions(Grammar& g, const std::string& startSymbol)
 					// check if i is among nullablePositions selected by mask
 					for (int j = 0; j < m; ++j)
 					{
-						if (nullablePositions[j] == i && (mask & (1 << j)))
+						if (nullablePositions[j] == static_cast<int>(i) && (mask & (1 << static_cast<int>(j))))
 						{
 							deleteThis = true;
 							break;
@@ -707,7 +707,7 @@ void printGrammar(const Grammar& g)
 {
 	for (const auto& rule : g.rules)
 	{
-		std::cout << rule.lhs << " --> ";
+		std::cout << rule.lhs << " -> ";
 
 		for (size_t i = 0; i < rule.rhs.size(); ++i)
 		{
