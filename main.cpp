@@ -300,20 +300,25 @@ void removeEpsilonProductions(Grammar& g, const std::string& startSymbol)
 			
 			// generate productions by deleting any subset of nullable positions
 			// iterate masks 1..(2^m - 1)
-			const int m = (int)nullablePositions.size();
-			const int totalMasks = 1 << m;
+			const size_t m = nullablePositions.size();
+			if (m >= sizeof(size_t) * 8)
+			{
+				std::cerr << "Too many nullable symbols for bitmask\n";
+				exit(1);
+			}
+			const size_t totalMasks = 1 << m;
 
-			for (int mask = 1; mask < totalMasks; ++mask)
+			for (size_t mask = 1; mask < totalMasks; ++mask)
 			{
 				std::vector<Symbol> candidate;
 				candidate.reserve(prod.size());
-				for (int i = 0; i < (int)prod.size(); ++i)
+				for (size_t i = 0; i < prod.size(); ++i)
 				{
 					bool deleteThis = false;
 					// check if i is among nullablePositions selected by mask
-					for (int j = 0; j < m; ++j)
+					for (size_t j = 0; j < m; ++j)
 					{
-						if (nullablePositions[j] == static_cast<int>(i) && (mask & (1 << static_cast<int>(j))))
+						if (nullablePositions[j] == i && (mask & (size_t{1} << j)))
 						{
 							deleteThis = true;
 							break;
