@@ -764,6 +764,10 @@ int main(int argc, char* argv[])
 
 	// get the grammar from the parser.
 	Grammar grammar1 = parser1.parseGrammar();
+
+	CNF(grammar1);
+
+	printGrammar(grammar1);
 	
 	
 
