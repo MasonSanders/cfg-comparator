@@ -70,7 +70,6 @@ size_t chooseAlternativeIndex(
     const GenSettings& cfg);
 
 std::optional<std::vector<std::string>> generateString(
-    const Grammar& g,
     const RuleMap& rm,
     const std::string& startSymbol,
     std::mt19937_64& rng,

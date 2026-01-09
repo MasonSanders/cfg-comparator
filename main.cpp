@@ -8,6 +8,7 @@
 #include <sstream>
 #include "parser.h"
 #include "rule.h"
+#include "cyk.h"
 
 bool isUnitProduction(const std::vector<Symbol>& prod)
 {
@@ -734,23 +735,52 @@ void printGrammar(const Grammar& g)
 }
 
 
+void testGrammars(const Grammar& g1, const Grammar& g2)
+{
+	CykIndex idx1 = buildCykIndex(g1);
+	CykIndex idx2 = buildCykIndex(g2);
+
+	GenSettings cfg;
+	cfg.maxSteps = 200;
+	cfg.maxLen = 40;
+	cfg.targetMin = 1;
+	cfg.targetMax = 20;
+
+	auto res = findCounterExample(g1, g1.rules[0].lhs, idx1,
+								 g2, g2.rules[0].lhs, idx2,
+								 5000, 1874592, cfg);
+
+	if (res.found)
+	{
+		std::cout << "Grammars are NOT equivalent.\n";
+		std::cout << "Witness: " << res.witness << "\n";
+		std::cout << "G1 accepts: " << res.g1Accepts << "\n";
+		std::cout << "G2 accepts: " << res.g2Accepts << "\n";
+	}
+	else
+	{
+		std::cout << "No counterexample found in budget.\n";
+	}
+}
+
+
 int main(int argc, char* argv[])
 {
 	// get the inputs
 	
 
 	// error if user puts the incorrect number of args
-	if (argc != 2) 
+	if (argc != 3)
 	{
 		std::cerr << "Usage: " << argv[0] << " <input filename 1> <input filename 2>" << std::endl;
 		return 1;	
 	}
 
 	std::string filename1 = argv[1];
-	//std::string filename2 = argv[2];
+	std::string filename2 = argv[2];
 
 	std::ifstream inFile1(filename1);
-	//std::ifstream inFile2(filename2);
+	std::ifstream inFile2(filename2);
 	
 	
 	// error if program can't read one of the files.
@@ -759,27 +789,29 @@ int main(int argc, char* argv[])
 		std::cerr << "Error: Could not open file '" << filename1 << "'" << std::endl;
 		return 1;
 	}
-	
 	// put the entire file contents into a string and create the parser
 	std::string input1 { std::istreambuf_iterator<char>(inFile1), std::istreambuf_iterator<char>() };
-	Parser parser1{input1};
 
-	// get the grammar from the parser.
-	Grammar grammar1 = parser1.parseGrammar();
-
-	CNF(grammar1);
-
-	printGrammar(grammar1);
-	
-	
-
-	/*
 	if (!inFile2)
 	{
 		std::cerr << "Error: Could not open file '" << filename2 << "'" << std::endl;
 		return 1;
 	}
-	*/
+
+	std::string input2 { std::istreambuf_iterator<char>(inFile2), std::istreambuf_iterator<char>() };
+
+	Parser parser1{input1};
+	Parser parser2{input2};
+
+	// get the grammars from the parser.
+	Grammar grammar1 = parser1.parseGrammar();
+	Grammar grammar2 = parser2.parseGrammar();
+
+	// convert the grammars to Chomsky normal form.
+	CNF(grammar1);
+	CNF(grammar2);
+
+	testGrammars(grammar1, grammar2);
 
 	return 0;
 }
