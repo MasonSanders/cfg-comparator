@@ -3,7 +3,7 @@ CXXFLAGS := -std=c++23 -Wall -Wextra -Wpedantic -O2
 
 TARGET := cfg_comparator
 
-SRCS := main.cpp lexer.cpp parser.cpp token.cpp
+SRCS := main.cpp lexer.cpp parser.cpp token.cpp cyk.cpp
 OBJS := $(SRCS:.cpp=.o)
 
 .PHONY: all clean

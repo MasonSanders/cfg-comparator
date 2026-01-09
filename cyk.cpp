@@ -222,7 +222,6 @@ size_t chooseAlternativeIndex(
 
 
 std::optional<std::vector<std::string>> generateString(
-    const Grammar& g,
     const RuleMap& rm,
     const std::string& startSymbol,
     std::mt19937_64& rng,
@@ -281,12 +280,12 @@ std::optional<std::vector<std::string>> generateString(
 
         std::vector<Symbol> next;
         next.reserve(sentential.size() + prod.size());
-        next.insert(next.end(), sentential.begin(), sentential.end() + (long)pos);
+        next.insert(next.end(), sentential.begin(), sentential.begin() + pos);
 
         if (!isEpsilonProd(prod))
             next.insert(next.end(), prod.begin(), prod.end());
 
-        next.insert(next.end(), sentential.begin() + (long)pos + 1, sentential.end());
+        next.insert(next.end(), sentential.begin() + pos + 1, sentential.end());
 
         sentential = std::move(next);
     }
@@ -302,6 +301,16 @@ std::string joinTokens(const std::vector<std::string>& w)
         s += t;
     }
     return s;
+}
+
+RuleMap buildRuleMap(const Grammar& g)
+{
+    RuleMap m;
+    for (const auto& r : g.rules)
+    {
+        m[r.lhs] = r.rhs;
+    }
+    return m;
 }
 
 DiffResult findCounterExample(
@@ -328,7 +337,7 @@ DiffResult findCounterExample(
     {
         for (size_t t = 0; t < trials; ++t)
         {
-            auto wOpt = generateString(genG, rmG, startG, rng, cfg);
+            auto wOpt = generateString(rmG, startG, rng, cfg);
             if (!wOpt)
                 continue;
 

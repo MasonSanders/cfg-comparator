@@ -1,0 +1,2 @@
+S -> A "b";
+A -> epsilon | "a" "a" A;
