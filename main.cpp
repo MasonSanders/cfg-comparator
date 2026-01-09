@@ -402,8 +402,8 @@ std::unordered_set<std::string> computeGenerating(const Grammar& g)
 				}
 				if (ok)
 				{
-					GEN.insert(r.lhs);
-					changed = true;
+					if (GEN.insert(r.lhs).second)
+						changed = true;
 					break;
 				}
 			}
@@ -606,6 +606,8 @@ void eliminateTerminalsFromLong(Grammar& g)
 					Rule tr;
 					tr.lhs = helper;
 					Symbol termSym;
+					termSym.isTerminal = true;
+					termSym.name = symbol.name;
 
 					tr.rhs.push_back(std::vector<Symbol>{ termSym });
 					newRules.push_back(tr);
@@ -764,6 +766,10 @@ int main(int argc, char* argv[])
 
 	// get the grammar from the parser.
 	Grammar grammar1 = parser1.parseGrammar();
+
+	CNF(grammar1);
+
+	printGrammar(grammar1);
 	
 	
 

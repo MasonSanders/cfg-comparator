@@ -1,0 +1,10 @@
+S -> A B C | D | "s";
+A -> "a";
+B -> epsilon;
+C -> "c";
+D -> E;
+E -> F;
+F -> "f";
+U -> V;
+V -> "v";
+Z -> Z;
