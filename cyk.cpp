@@ -280,12 +280,12 @@ std::optional<std::vector<std::string>> generateString(
 
         std::vector<Symbol> next;
         next.reserve(sentential.size() + prod.size());
-        next.insert(next.end(), sentential.begin(), sentential.end() + (long)pos);
+        next.insert(next.end(), sentential.begin(), sentential.begin() + pos);
 
         if (!isEpsilonProd(prod))
             next.insert(next.end(), prod.begin(), prod.end());
 
-        next.insert(next.end(), sentential.begin() + (long)pos + 1, sentential.end());
+        next.insert(next.end(), sentential.begin() + pos + 1, sentential.end());
 
         sentential = std::move(next);
     }
