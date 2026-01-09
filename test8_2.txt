@@ -1,0 +1,2 @@
+S -> T | epsilon;
+T -> "a" T | "b" T | "a" | "b";
